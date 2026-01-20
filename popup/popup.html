@@ -9,13 +9,42 @@
 <body>
   <div class="container">
     <h1>书签清理器</h1>
+    
+    <div class="stats-section">
+      <div class="stat-item">
+        <span class="stat-label">总书签数</span>
+        <span class="stat-value" id="totalBookmarks">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">文件夹数</span>
+        <span class="stat-value" id="totalFolders">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">重复组数</span>
+        <span class="stat-value" id="duplicateGroups">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">待删除</span>
+        <span class="stat-value warning" id="selectedToDelete">0</span>
+      </div>
+    </div>
+
     <div class="status-section">
       <p id="status">点击下方按钮开始扫描</p>
     </div>
+    
     <div class="button-section">
       <button id="scanBtn">扫描重复书签</button>
       <button id="cleanBtn" disabled>清理重复项</button>
     </div>
+    
+    <div class="select-section" id="selectSection" style="display: none;">
+      <label class="select-all">
+        <input type="checkbox" id="selectAll">
+        <span>全选</span>
+      </label>
+    </div>
+    
     <div class="result-section">
       <h2>扫描结果</h2>
       <div id="resultList"></div>
