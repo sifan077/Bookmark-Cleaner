@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>书签清理器</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>书签清理器</h1>
+    <div class="status-section">
+      <p id="status">点击下方按钮开始扫描</p>
+    </div>
+    <div class="button-section">
+      <button id="scanBtn">扫描重复书签</button>
+      <button id="cleanBtn" disabled>清理重复项</button>
+    </div>
+    <div class="result-section">
+      <h2>扫描结果</h2>
+      <div id="resultList"></div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
