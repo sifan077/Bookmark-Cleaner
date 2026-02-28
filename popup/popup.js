@@ -101,14 +101,14 @@ async function getAllBookmarks() {
         reject(chrome.runtime.lastError);
       } else {
         const bookmarks = [];
-        traverseBookmarks(bookmarkTree, bookmarks);
+        traverseBookmarks(bookmarkTree, bookmarks, null);
         resolve(bookmarks);
       }
     });
   });
 }
 
-function traverseBookmarks(nodes, bookmarks) {
+function traverseBookmarks(nodes, bookmarks, parentId = null) {
   for (const node of nodes) {
     if (node.url) {
       bookmarks.push({
@@ -116,11 +116,12 @@ function traverseBookmarks(nodes, bookmarks) {
         title: node.title,
         url: node.url,
         dateAdded: node.dateAdded,
-        path: bookmarkPathMap.get(node.id) || '未知文件夹'
+        path: bookmarkPathMap.get(node.id) || '未知文件夹',
+        parentId: parentId
       });
     }
     if (node.children) {
-      traverseBookmarks(node.children, bookmarks);
+      traverseBookmarks(node.children, bookmarks, node.id);
     }
   }
 }
@@ -141,7 +142,7 @@ function findDuplicates(bookmarks) {
     if (items.length > 1) {
       duplicates.push({
         url: items[0].url,
-        items: items.sort((a, b) => b.dateAdded - a.dateAdded)
+        items: items.sort((a, b) => a.dateAdded - b.dateAdded)
       });
     }
   }
@@ -185,7 +186,7 @@ function displayResults(duplicates) {
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
-      checkbox.id = `bookmark-${item.id}`;
+      checkbox.id = item.id;
       checkbox.disabled = itemIndex === 0;
       checkbox.addEventListener('change', (e) => toggleBookmarkSelection(item.id, e.target));
 
@@ -220,10 +221,10 @@ function toggleBookmarkSelection(id, checkbox) {
   const itemDiv = checkbox.closest('.duplicate-item');
   
   if (checkbox.checked) {
-    selectedBookmarks.add(id);
+    selectedBookmarks.add(String(id));
     itemDiv.classList.add('selected');
   } else {
-    selectedBookmarks.delete(id);
+    selectedBookmarks.delete(String(id));
     itemDiv.classList.remove('selected');
   }
 
@@ -237,7 +238,7 @@ function toggleSelectAll(e) {
   const checkboxes = document.querySelectorAll('.duplicate-item input[type="checkbox"]:not(:disabled)');
   
   checkboxes.forEach(checkbox => {
-    const id = parseInt(checkbox.id.replace('bookmark-', ''));
+    const id = checkbox.id;
     checkbox.checked = e.target.checked;
     
     const itemDiv = checkbox.closest('.duplicate-item');
@@ -276,7 +277,7 @@ async function cleanDuplicates() {
     return;
   }
 
-  if (!confirm(`确定要删除选中的 ${selectedBookmarks.size} 个重复书签吗？`)) {
+  if (!confirm(`确定要删除选中的 ${selectedBookmarks.size} 个重复书签吗？\n同时将删除所有空文件夹。`)) {
     return;
   }
 
@@ -285,13 +286,23 @@ async function cleanDuplicates() {
 
   try {
     let deletedCount = 0;
+    let deletedFolderCount = 0;
 
+    // 删除选中的书签
     for (const id of selectedBookmarks) {
       await removeBookmark(id);
       deletedCount++;
     }
 
-    statusEl.textContent = `清理完成：已删除 ${deletedCount} 个重复书签`;
+    // 删除空文件夹
+    const deletedFolders = await removeEmptyFolders();
+    deletedFolderCount = deletedFolders.length;
+
+    let message = `清理完成：已删除 ${deletedCount} 个重复书签`;
+    if (deletedFolderCount > 0) {
+      message += `，${deletedFolderCount} 个空文件夹`;
+    }
+    statusEl.textContent = message;
     resultEl.innerHTML = '<div class="no-duplicates">重复书签已清理</div>';
     document.getElementById('selectSection').style.display = 'none';
     selectedBookmarks.clear();
@@ -307,6 +318,74 @@ async function cleanDuplicates() {
 function removeBookmark(id) {
   return new Promise((resolve, reject) => {
     chrome.bookmarks.remove(id, () => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+async function removeEmptyFolders() {
+  const deletedFolders = [];
+  let hasEmptyFolders = true;
+
+  // 循环检查直到没有空文件夹为止（处理嵌套空文件夹）
+  while (hasEmptyFolders) {
+    hasEmptyFolders = false;
+    const emptyFolderIds = await findEmptyFolders();
+
+    if (emptyFolderIds.length > 0) {
+      hasEmptyFolders = true;
+      for (const folderId of emptyFolderIds) {
+        await removeFolder(folderId);
+        deletedFolders.push(folderId);
+      }
+    }
+  }
+
+  return deletedFolders;
+}
+
+async function findEmptyFolders() {
+  return new Promise((resolve, reject) => {
+    chrome.bookmarks.getTree((bookmarkTree) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        const emptyFolders = [];
+        const bookmarkBarId = '1'; // 书签栏
+        const otherBookmarksId = '2'; // 其他书签
+
+        function traverse(nodes) {
+          for (const node of nodes) {
+            if (!node.url && node.children) {
+              // 不删除根节点（书签栏和其他书签）
+              if (node.id !== bookmarkBarId && node.id !== otherBookmarksId) {
+                // 检查是否为空文件夹
+                if (node.children.length === 0) {
+                  emptyFolders.push(node.id);
+                } else {
+                  traverse(node.children);
+                }
+              } else {
+                traverse(node.children);
+              }
+            }
+          }
+        }
+
+        traverse(bookmarkTree);
+        resolve(emptyFolders);
+      }
+    });
+  });
+}
+
+function removeFolder(id) {
+  return new Promise((resolve, reject) => {
+    chrome.bookmarks.removeTree(id, () => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError);
       } else {
