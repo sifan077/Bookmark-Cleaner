@@ -277,7 +277,10 @@ async function cleanDuplicates() {
     return;
   }
 
-  if (!confirm(`确定要删除选中的 ${selectedBookmarks.size} 个重复书签吗？\n同时将删除所有空文件夹。`)) {
+  const confirmed = await showConfirmDialog(
+    `确定要删除选中的 <strong>${selectedBookmarks.size}</strong> 个重复书签吗？<br><br>同时将删除所有空文件夹。`
+  );
+  if (!confirmed) {
     return;
   }
 
@@ -289,9 +292,15 @@ async function cleanDuplicates() {
     let deletedFolderCount = 0;
 
     // 删除选中的书签
+    const failedIds = [];
     for (const id of selectedBookmarks) {
-      await removeBookmark(id);
-      deletedCount++;
+      try {
+        await removeBookmark(id);
+        deletedCount++;
+      } catch (err) {
+        console.warn(`删除书签 ${id} 失败:`, err.message);
+        failedIds.push(id);
+      }
     }
 
     // 删除空文件夹
@@ -301,6 +310,9 @@ async function cleanDuplicates() {
     let message = `清理完成：已删除 ${deletedCount} 个重复书签`;
     if (deletedFolderCount > 0) {
       message += `，${deletedFolderCount} 个空文件夹`;
+    }
+    if (failedIds.length > 0) {
+      message += `（${failedIds.length} 个删除失败）`;
     }
     statusEl.textContent = message;
     resultEl.innerHTML = '<div class="no-duplicates">重复书签已清理</div>';
@@ -380,6 +392,37 @@ async function findEmptyFolders() {
         resolve(emptyFolders);
       }
     });
+  });
+}
+
+function showConfirmDialog(message) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirmModal');
+    const msgEl = document.getElementById('confirmMessage');
+    const cancelBtn = document.getElementById('confirmCancel');
+    const okBtn = document.getElementById('confirmOk');
+
+    msgEl.innerHTML = message;
+    modal.style.display = 'flex';
+
+    function cleanup() {
+      modal.style.display = 'none';
+      cancelBtn.removeEventListener('click', onCancel);
+      okBtn.removeEventListener('click', onOk);
+    }
+
+    function onCancel() {
+      cleanup();
+      resolve(false);
+    }
+
+    function onOk() {
+      cleanup();
+      resolve(true);
+    }
+
+    cancelBtn.addEventListener('click', onCancel);
+    okBtn.addEventListener('click', onOk);
   });
 }
 

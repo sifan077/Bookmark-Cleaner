@@ -7,6 +7,21 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+  <!-- 自定义确认弹窗 -->
+  <div class="modal-overlay" id="confirmModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-icon">⚠️</span>
+        <h3 class="modal-title">确认删除</h3>
+      </div>
+      <div class="modal-body" id="confirmMessage"></div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-cancel" id="confirmCancel">取消</button>
+        <button class="modal-btn modal-btn-confirm" id="confirmOk">确认删除</button>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
     <h1>书签清理器</h1>
     
